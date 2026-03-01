@@ -1,0 +1,9 @@
+restaurant_id,restaurant_name,brand,city,province,seating_capacity,opening_date
+1,Jack Astor's Toronto,Jack Astor's,Toronto,ON,180,2018-05-10
+2,Scaddabush Square One,Scaddabush,Mississauga,ON,220,2019-03-15
+3,Duke's Refresher Toronto,Duke's Refresher,Toronto,ON,140,2020-06-20
+4,Reds Wine Tavern,Reds,Toronto,ON,160,2017-09-05
+5,Loose Moose,Loose Moose,Toronto,ON,200,2016-11-11
+6,Jack Astor's Ottawa,Jack Astor's,Ottawa,ON,170,2019-08-01
+7,Scaddabush Vaughan,Scaddabush,Vaughan,ON,210,2021-04-10
+8,Duke's Refresher Mississauga,Duke's Refresher,Mississauga,ON,150,2020-12-01
