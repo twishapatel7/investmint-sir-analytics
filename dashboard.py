@@ -4,20 +4,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 from prophet import Prophet
 
-# -------------------
-# Page config
-# -------------------
-
 st.set_page_config(
     page_title="SIR Royalty Income Analytics",
     layout="wide"
 )
 
 st.title("SIR Royalty Income Fund Analytics Dashboard")
-
-# -------------------
-# Load Data
-# -------------------
 
 restaurants = pd.read_csv("restaurants.csv")
 daily = pd.read_csv("daily_metrics.csv")
@@ -26,16 +18,10 @@ daily["date"] = pd.to_datetime(daily["date"])
 
 df = daily.merge(restaurants, on="restaurant_id")
 
-# aggregate
 revenue_by_date = df.groupby("date")["total_sales"].sum().reset_index()
 royalty_by_date = df.groupby("date")["royalty_income"].sum().reset_index()
 
-# moving average
 revenue_by_date["30_day_avg"] = revenue_by_date["total_sales"].rolling(30).mean()
-
-# -------------------
-# Sidebar filters
-# -------------------
 
 st.sidebar.header("Filters")
 
@@ -49,15 +35,7 @@ if selected_restaurant != "All":
 else:
     df_filtered = df.copy()
 
-# -------------------
-# Tabs
-# -------------------
-
 tab1, tab2 = st.tabs(["Analytics", "Forecasting"])
-
-# =====================================================
-# TAB 1 — ANALYTICS
-# =====================================================
 
 with tab1:
 
@@ -77,7 +55,6 @@ with tab1:
 
     st.divider()
 
-    # Revenue vs Moving Average
     st.subheader("Revenue Trend with Moving Average")
 
     fig = go.Figure()
@@ -98,7 +75,6 @@ with tab1:
 
     st.plotly_chart(fig, use_container_width=True)
 
-    # Revenue vs Royalty
     st.subheader("Revenue vs Royalty Income")
 
     combined = revenue_by_date.merge(
@@ -124,7 +100,6 @@ with tab1:
 
     colA, colB = st.columns(2)
 
-    # Revenue by Restaurant
     with colA:
 
         st.subheader("Revenue by Restaurant")
@@ -143,7 +118,6 @@ with tab1:
 
         st.plotly_chart(fig3, use_container_width=True)
 
-    # Pie chart by Brand
     with colB:
 
         st.subheader("Revenue Distribution by Brand")
@@ -161,7 +135,6 @@ with tab1:
 
         st.plotly_chart(fig4, use_container_width=True)
 
-    # Customer trends
     st.subheader("Customer Traffic Over Time")
 
     cust = df_filtered.groupby("date")["customers"].sum().reset_index()
@@ -173,10 +146,6 @@ with tab1:
     )
 
     st.plotly_chart(fig5, use_container_width=True)
-
-# =====================================================
-# TAB 2 — FORECASTING
-# =====================================================
 
 with tab2:
 
