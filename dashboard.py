@@ -1,7 +1,23 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 from prophet import Prophet
+
+# -------------------
+# Page config
+# -------------------
+
+st.set_page_config(
+    page_title="SIR Royalty Income Analytics",
+    layout="wide"
+)
+
+st.title("SIR Royalty Income Fund Analytics Dashboard")
+
+# -------------------
+# Load Data
+# -------------------
 
 restaurants = pd.read_csv("restaurants.csv")
 daily = pd.read_csv("daily_metrics.csv")
@@ -10,89 +26,165 @@ daily["date"] = pd.to_datetime(daily["date"])
 
 df = daily.merge(restaurants, on="restaurant_id")
 
+# aggregate
 revenue_by_date = df.groupby("date")["total_sales"].sum().reset_index()
 royalty_by_date = df.groupby("date")["royalty_income"].sum().reset_index()
 
-st.set_page_config(
-    page_title="SIR Royalty Income Dashboard",
-    layout="wide"
+# moving average
+revenue_by_date["30_day_avg"] = revenue_by_date["total_sales"].rolling(30).mean()
+
+# -------------------
+# Sidebar filters
+# -------------------
+
+st.sidebar.header("Filters")
+
+selected_restaurant = st.sidebar.selectbox(
+    "Select Restaurant",
+    ["All"] + list(df["restaurant_name"].unique())
 )
 
-st.title("SIR Royalty Income Fund Analytics")
+if selected_restaurant != "All":
+    df_filtered = df[df["restaurant_name"] == selected_restaurant]
+else:
+    df_filtered = df.copy()
 
-tab1, tab2 = st.tabs(["Historical Analytics", "Forecasting"])
+# -------------------
+# Tabs
+# -------------------
+
+tab1, tab2 = st.tabs(["Analytics", "Forecasting"])
+
+# =====================================================
+# TAB 1 — ANALYTICS
+# =====================================================
 
 with tab1:
 
-    st.header("Historical Performance")
+    st.header("Executive Overview")
 
-    total_revenue = df["total_sales"].sum()
-    total_royalty = df["royalty_income"].sum()
-    avg_daily_revenue = df["total_sales"].mean()
+    total_revenue = df_filtered["total_sales"].sum()
+    total_royalty = df_filtered["royalty_income"].sum()
+    avg_order = df_filtered["avg_order_value"].mean()
+    total_customers = df_filtered["customers"].sum()
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
 
     col1.metric("Total Revenue", f"${total_revenue:,.0f}")
     col2.metric("Total Royalty Income", f"${total_royalty:,.0f}")
-    col3.metric("Avg Daily Revenue", f"${avg_daily_revenue:,.0f}")
+    col3.metric("Avg Order Value", f"${avg_order:,.2f}")
+    col4.metric("Total Customers", f"{total_customers:,}")
 
-    st.subheader("Revenue Over Time")
+    st.divider()
 
-    fig1 = px.line(
-        revenue_by_date,
-        x="date",
-        y="total_sales",
-        title="Daily Revenue"
-    )
+    # Revenue vs Moving Average
+    st.subheader("Revenue Trend with Moving Average")
 
-    st.plotly_chart(fig1, use_container_width=True)
+    fig = go.Figure()
 
-    st.subheader("Royalty Income Over Time")
+    fig.add_trace(go.Scatter(
+        x=revenue_by_date["date"],
+        y=revenue_by_date["total_sales"],
+        name="Daily Revenue",
+        opacity=0.4
+    ))
 
-    fig2 = px.line(
+    fig.add_trace(go.Scatter(
+        x=revenue_by_date["date"],
+        y=revenue_by_date["30_day_avg"],
+        name="30-Day Average",
+        line=dict(width=3)
+    ))
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Revenue vs Royalty
+    st.subheader("Revenue vs Royalty Income")
+
+    combined = revenue_by_date.merge(
         royalty_by_date,
-        x="date",
-        y="royalty_income",
-        title="Daily Royalty Income"
+        on="date"
     )
+
+    fig2 = go.Figure()
+
+    fig2.add_trace(go.Scatter(
+        x=combined["date"],
+        y=combined["total_sales"],
+        name="Revenue"
+    ))
+
+    fig2.add_trace(go.Scatter(
+        x=combined["date"],
+        y=combined["royalty_income"],
+        name="Royalty Income"
+    ))
 
     st.plotly_chart(fig2, use_container_width=True)
 
-    st.subheader("Revenue by Restaurant")
+    colA, colB = st.columns(2)
 
-    revenue_by_restaurant = df.groupby("restaurant_name")["total_sales"].sum().reset_index()
+    # Revenue by Restaurant
+    with colA:
 
-    fig3 = px.bar(
-        revenue_by_restaurant,
-        x="restaurant_name",
-        y="total_sales",
-        title="Total Revenue by Restaurant"
-    )
+        st.subheader("Revenue by Restaurant")
 
-    st.plotly_chart(fig3, use_container_width=True)
+        rest_rev = df_filtered.groupby(
+            "restaurant_name"
+        )["total_sales"].sum().reset_index()
 
-    st.subheader("30-Day Moving Average")
+        fig3 = px.bar(
+            rest_rev,
+            x="restaurant_name",
+            y="total_sales",
+            color="total_sales",
+            title="Restaurant Performance"
+        )
 
-    revenue_by_date["30_day_avg"] = revenue_by_date["total_sales"].rolling(30).mean()
+        st.plotly_chart(fig3, use_container_width=True)
 
-    fig4 = px.line(
-        revenue_by_date,
+    # Pie chart by Brand
+    with colB:
+
+        st.subheader("Revenue Distribution by Brand")
+
+        brand_rev = df_filtered.groupby(
+            "brand"
+        )["total_sales"].sum().reset_index()
+
+        fig4 = px.pie(
+            brand_rev,
+            names="brand",
+            values="total_sales",
+            hole=0.4
+        )
+
+        st.plotly_chart(fig4, use_container_width=True)
+
+    # Customer trends
+    st.subheader("Customer Traffic Over Time")
+
+    cust = df_filtered.groupby("date")["customers"].sum().reset_index()
+
+    fig5 = px.line(
+        cust,
         x="date",
-        y="30_day_avg",
-        title="Revenue Trend (Smoothed)"
+        y="customers"
     )
 
-    st.plotly_chart(fig4, use_container_width=True)
+    st.plotly_chart(fig5, use_container_width=True)
 
+# =====================================================
+# TAB 2 — FORECASTING
+# =====================================================
 
 with tab2:
 
-    st.header("Revenue & Royalty Forecast")
+    st.header("Predictive Forecasting")
 
-    forecast_df = revenue_by_date.rename(columns={
-        "date": "ds",
-        "total_sales": "y"
-    })
+    forecast_df = revenue_by_date.rename(
+        columns={"date": "ds", "total_sales": "y"}
+    )
 
     model = Prophet(
         daily_seasonality=True,
@@ -108,39 +200,51 @@ with tab2:
 
     st.subheader("Revenue Forecast")
 
-    fig5 = px.line(
-        forecast,
-        x="ds",
-        y="yhat",
-        title="Predicted Revenue"
-    )
+    fig6 = go.Figure()
 
-    fig5.add_scatter(
+    fig6.add_trace(go.Scatter(
         x=forecast_df["ds"],
         y=forecast_df["y"],
-        mode="lines",
-        name="Actual Revenue"
-    )
+        name="Actual"
+    ))
 
-    st.plotly_chart(fig5, use_container_width=True)
+    fig6.add_trace(go.Scatter(
+        x=forecast["ds"],
+        y=forecast["yhat"],
+        name="Forecast"
+    ))
+
+    fig6.add_trace(go.Scatter(
+        x=forecast["ds"],
+        y=forecast["yhat_upper"],
+        name="Upper Bound",
+        line=dict(dash="dash")
+    ))
+
+    fig6.add_trace(go.Scatter(
+        x=forecast["ds"],
+        y=forecast["yhat_lower"],
+        name="Lower Bound",
+        line=dict(dash="dash")
+    ))
+
+    st.plotly_chart(fig6, use_container_width=True)
 
     forecast["royalty_forecast"] = forecast["yhat"] * 0.06
 
     st.subheader("Royalty Income Forecast")
 
-    fig6 = px.line(
+    fig7 = px.line(
         forecast,
         x="ds",
-        y="royalty_forecast",
-        title="Predicted Royalty Income"
+        y="royalty_forecast"
     )
 
-    st.plotly_chart(fig6, use_container_width=True)
+    st.plotly_chart(fig7, use_container_width=True)
 
-    next_30_days = forecast.tail(30)
-    predicted_royalty = next_30_days["royalty_forecast"].sum()
+    next_30 = forecast.tail(30)["royalty_forecast"].sum()
 
     st.metric(
         "Predicted Royalty Income (Next 30 Days)",
-        f"${predicted_royalty:,.0f}"
+        f"${next_30:,.0f}"
     )
